@@ -235,12 +235,7 @@ while getopts "::t:j:sdDxfgnva:P:c:l:Ji" OPTION; do
 	esac
 done
 
-if [ "$PM_VERSION_MAJOR" == "" ]; then
-	write_error "Please specify PocketMine-MP major version target with -P (e.g. -P5)"
-	exit 1
-fi
-
-write_out "opt" "Compiling with configuration for PocketMine-MP $PM_VERSION_MAJOR"
+write_out "opt" "Compiling with PocketMine-MP 5"
 
 #Needed to use aliases
 shopt -s expand_aliases
@@ -303,99 +298,27 @@ TOOLCHAIN_PREFIX=""
 OPENSSL_TARGET=""
 CMAKE_GLOBAL_EXTRA_FLAGS=""
 
-if [ "$IS_CROSSCOMPILE" == "yes" ]; then
-	export CROSS_COMPILER="$PATH"
-	if [ "$COMPILE_TARGET" == "android-aarch64" ]; then
-		COMPILE_FOR_ANDROID=yes
-		[ -z "$march" ] && march="armv8-a";
-		[ -z "$mtune" ] && mtune=generic;
-		TOOLCHAIN_PREFIX="aarch64-linux-musl"
-		CONFIGURE_FLAGS="--host=$TOOLCHAIN_PREFIX"
-		CFLAGS="-static $CFLAGS"
-		CXXFLAGS="-static $CXXFLAGS"
-		LDFLAGS="-static -static-libgcc -Wl,-static"
-		DO_STATIC="yes"
-		OPENSSL_TARGET="linux-aarch64"
-		export ac_cv_func_fnmatch_works=yes #musl should be OK
-		write_out "INFO" "Cross-compiling for Android ARMv8 (aarch64)"
-	#TODO: add cross-compile for aarch64 platforms (ios, rpi)
-	else
-		write_error "Please supply a proper platform [android-aarch64] to cross-compile"
-		exit 1
-	fi
-else
-	if [[ "$COMPILE_TARGET" == "" ]] && [[ "$(uname -s)" == "Darwin" ]]; then
-		if [ "$(uname -m)" == "arm64" ]; then
-			COMPILE_TARGET="mac-arm64"
-		else
-			COMPILE_TARGET="mac-x86-64"
-		fi
-	fi
-	if [[ "$COMPILE_TARGET" == "linux" ]] || [[ "$COMPILE_TARGET" == "linux64" ]]; then
-		[ -z "$march" ] && march=x86-64;
-		[ -z "$mtune" ] && mtune=skylake;
-		CFLAGS="$CFLAGS -m64"
-		GMP_ABI="64"
-		OPENSSL_TARGET="linux-x86_64"
-		write_out "INFO" "Compiling for Linux x86_64"
-	elif [[ "$COMPILE_TARGET" == "mac-x86-64" ]]; then
-		[ -z "$march" ] && march=core2;
-		[ -z "$mtune" ] && mtune=generic;
-		[ -z "$MACOSX_DEPLOYMENT_TARGET" ] && export MACOSX_DEPLOYMENT_TARGET=10.9;
-		CFLAGS="$CFLAGS -m64 -arch x86_64 -fomit-frame-pointer -mmacosx-version-min=$MACOSX_DEPLOYMENT_TARGET"
-		LDFLAGS="$LDFLAGS -mmacosx-version-min=$MACOSX_DEPLOYMENT_TARGET"
-		if [ "$DO_STATIC" == "no" ]; then
-			LDFLAGS="$LDFLAGS -Wl,-rpath,@loader_path/../lib";
-			export DYLD_LIBRARY_PATH="@loader_path/../lib"
-		fi
-		CFLAGS="$CFLAGS -Qunused-arguments"
-		GMP_ABI="64"
-		OPENSSL_TARGET="darwin64-x86_64-cc"
-		CMAKE_GLOBAL_EXTRA_FLAGS="-DCMAKE_OSX_ARCHITECTURES=x86_64"
-		write_out "INFO" "Compiling for MacOS x86_64"
-	#TODO: add aarch64 platforms (ios, android, rpi)
-	elif [[ "$COMPILE_TARGET" == "mac-arm64" ]]; then
-		[ -z "$MACOSX_DEPLOYMENT_TARGET" ] && export MACOSX_DEPLOYMENT_TARGET=11.0;
-		CFLAGS="$CFLAGS -arch arm64 -fomit-frame-pointer -mmacosx-version-min=$MACOSX_DEPLOYMENT_TARGET"
-		LDFLAGS="$LDFLAGS -mmacosx-version-min=$MACOSX_DEPLOYMENT_TARGET"
-		if [ "$DO_STATIC" == "no" ]; then
-			LDFLAGS="$LDFLAGS -Wl,-rpath,@loader_path/../lib";
-			export DYLD_LIBRARY_PATH="@loader_path/../lib"
-		fi
-		CFLAGS="$CFLAGS -Qunused-arguments"
-		GMP_ABI="64"
-		OPENSSL_TARGET="darwin64-arm64-cc"
-		CMAKE_GLOBAL_EXTRA_FLAGS="-DCMAKE_OSX_ARCHITECTURES=arm64"
-		write_out "INFO" "Compiling for MacOS M1"
-	elif [[ "$COMPILE_TARGET" != "" ]]; then
-		write_error "Please supply a proper platform [mac-arm64 mac-x86-64 linux linux64] to compile for"
-		exit 1
-	elif [ -z "$CFLAGS" ]; then
-		if [ `getconf LONG_BIT` == "64" ]; then
-			write_out "INFO" "Compiling for current machine using 64-bit"
-			if [ "$(uname -m)" != "aarch64" ]; then
-				CFLAGS="-m64 $CFLAGS"
-			fi
-			GMP_ABI="64"
-		else
-			write_out "ERROR" "PocketMine-MP is no longer supported on 32-bit systems"
-			exit 1
-		fi
-	fi
-fi
+//use android
+export CROSS_COMPILER="$PATH"
+COMPILE_FOR_ANDROID=yes
+[ -z "$march" ] && march="armv8-a";
+[ -z "$mtune" ] && mtune=generic;
+TOOLCHAIN_PREFIX="aarch64-linux-musl"
+CONFIGURE_FLAGS="--host=$TOOLCHAIN_PREFIX"
+CFLAGS="-static $CFLAGS"
+CXXFLAGS="-static $CXXFLAGS"
+LDFLAGS="-static -static-libgcc -Wl,-static"
+DO_STATIC="yes"
+OPENSSL_TARGET="linux-aarch64"
+export ac_cv_func_fnmatch_works=yes #musl should be OK
+write_out "INFO" "Cross-compiling for Android ARMv8 (aarch64)"
 
-if [ "$DO_STATIC" == "yes" ]; then
-	HAVE_OPCACHE="no" #doesn't work on static builds
-	HAVE_OPCACHE_JIT="no"
-	write_out "warning" "OPcache cannot be used on static builds; this may have a negative effect on performance"
-	if [ "$FSANITIZE_OPTIONS" != "" ]; then
-		write_out "warning" "Sanitizers cannot be used on static builds"
-	fi
-	if [ "$HAVE_XDEBUG" == "yes" ]; then
-	  write_out "warning" "Xdebug cannot be built in static mode"
-	  HAVE_XDEBUG="no"
-	fi
-fi
+//always static
+HAVE_OPCACHE="no" #doesn't work on static builds
+HAVE_OPCACHE_JIT="no"
+write_out "warning" "OPcache cannot be used on static builds; this may have a negative effect on performance"
+	
+
 
 if [ "$TOOLCHAIN_PREFIX" != "" ]; then
 		export CC="$TOOLCHAIN_PREFIX-gcc"
@@ -415,17 +338,13 @@ echo "}" >> test.c
 
 type $CC >> "$DIR/install.log" 2>&1 || { write_error "Please install \"$CC\""; exit 1; }
 
-if [ -z "$THREADS" ]; then
-	write_out "WARNING" "Only 1 thread is used by default. Increase thread count using -j (e.g. -j 4) to compile faster."	
-	THREADS=1;
+//use 12 cores
+if [ -z "$THREADS" ]; then	
+	THREADS=12;
 fi
 [ -z "$march" ] && march=native;
 [ -z "$mtune" ] && mtune=native;
 [ -z "$CFLAGS" ] && CFLAGS="";
-
-if [ "$DO_STATIC" == "no" ]; then
-	[ -z "$LDFLAGS" ] && LDFLAGS="-Wl,-rpath='\$\$ORIGIN/../lib' -Wl,-rpath-link='\$\$ORIGIN/../lib'";
-fi
 
 [ -z "$CONFIGURE_FLAGS" ] && CONFIGURE_FLAGS="";
 
@@ -441,34 +360,21 @@ else
 	fi
 fi
 
-if [ "$DO_OPTIMIZE" != "no" ]; then
-	#FLAGS_LTO="-fvisibility=hidden -flto"
-	CFLAGS="$CFLAGS -O2"
-	GENERIC_CFLAGS="$CFLAGS -ftree-vectorize -fomit-frame-pointer"
-	$CC $CFLAGS $GENERIC_CFLAGS -o test test.c >> "$DIR/install.log" 2>&1
-	if [ $? -eq 0 ]; then
-		CFLAGS="$CFLAGS $GENERIC_CFLAGS"
-	fi
-	#clang does not understand the following and will fail
-	GCC_CFLAGS="$CFLAGS -funsafe-loop-optimizations -fpredictive-commoning -ftracer -ftree-loop-im -frename-registers -fcx-limited-range -funswitch-loops -fivopts -fno-gcse"
-	$CC $CFLAGS $GCC_CFLAGS -o test test.c >> "$DIR/install.log" 2>&1
-	if [ $? -eq 0 ]; then
-		CFLAGS="$CFLAGS $GCC_CFLAGS"
-	fi
-	#TODO: -ftree-parallelize-loops requires OpenMP - not sure if it will provide meaningful improvements yet
+//always optimize
+ #FLAGS_LTO="-fvisibility=hidden -flto"
+CFLAGS="$CFLAGS -O3"
+GENERIC_CFLAGS="$CFLAGS -ftree-vectorize -fomit-frame-pointer"
+$CC $CFLAGS $GENERIC_CFLAGS -o test test.c >> "$DIR/install.log" 2>&1
+if [ $? -eq 0 ]; then
+	CFLAGS="$CFLAGS $GENERIC_CFLAGS"
 fi
-
-if [ "$FSANITIZE_OPTIONS" != "" ]; then
-	CFLAGS="$CFLAGS" CXXFLAGS="$CXXFLAGS" LDFLAGS="$LDFLAGS" $CC -fsanitize=$FSANITIZE_OPTIONS -o asan-test test.c >> "$DIR/install.log" 2>&1 && \
-		chmod +x asan-test >> "$DIR/install.log" 2>&1 && \
-		./asan-test >> "$DIR/install.log" 2>&1 && \
-		rm asan-test >> "$DIR/install.log" 2>&1
-	if [ $? -ne 0 ]; then
-		write_out "ERROR" "One or more sanitizers are not working. Check install.log for details."
-		exit 1
-	else
-		write_out "INFO" "All selected sanitizers are working"
-	fi
+#clang does not understand the following and will fail
+GCC_CFLAGS="$CFLAGS -funsafe-loop-optimizations -fpredictive-commoning -ftracer -ftree-loop-im -frename-registers -fcx-limited-range -funswitch-loops -fivopts -fno-gcse"
+$CC $CFLAGS $GCC_CFLAGS -o test test.c >> "$DIR/install.log" 2>&1
+if [ $? -eq 0 ]; then
+	CFLAGS="$CFLAGS $GCC_CFLAGS"
+fi
+#TODO: -ftree-parallelize-loops requires OpenMP - not sure if it will provide meaningful improvements yet
 fi
 
 rm test.* >> "$DIR/install.log" 2>&1
@@ -1112,24 +1018,7 @@ elif [ "$DO_STATIC" == "yes" ]; then
 	export LIBS="$LIBS -ldl"
 fi
 
-if [ "$IS_WINDOWS" != "yes" ]; then
-	HAVE_PCNTL="--enable-pcntl"
-else
-	HAVE_PCNTL="--disable-pcntl"
-	cp -f ./win32/build/config.* ./main >> "$DIR/install.log" 2>&1
-	sed 's:@PREFIX@:$DIR/bin/php7:' ./main/config.w32.h.in > ./wmain/config.w32.h 2>> "$DIR/install.log"
-fi
-
-if [[ "$(uname -s)" == "Darwin" ]] && [[ "$IS_CROSSCOMPILE" != "yes" ]]; then
-	sed -i=".backup" 's/flock_type=unknown/flock_type=bsd/' ./configure
-	export EXTRA_CFLAGS=-lresolv
-fi
-
-if [[ "$COMPILE_DEBUG" == "yes" ]]; then
-	HAS_DEBUG="--enable-debug"
-else
-	HAS_DEBUG="--disable-debug"
-fi
+HAVE_PCNTL="--enable-pcntl"
 
 if [ "$FSANITIZE_OPTIONS" != "" ]; then
 	CFLAGS="$CFLAGS -fsanitize=$FSANITIZE_OPTIONS -fno-omit-frame-pointer"
@@ -1197,15 +1086,12 @@ $HAVE_MYSQLI \
 $HAVE_VALGRIND \
 $CONFIGURE_FLAGS >> "$DIR/install.log" 2>&1
 write_compile
-if [ "$COMPILE_FOR_ANDROID" == "yes" ]; then
-	sed -i=".backup" 's/-export-dynamic/-all-static/g' Makefile
-fi
+
+sed -i=".backup" 's/-export-dynamic/-all-static/g' Makefile
 sed -i=".backup" 's/PHP_BINARIES. pharcmd$/PHP_BINARIES)/g' Makefile
 sed -i=".backup" 's/install-programs install-pharcmd$/install-programs/g' Makefile
+sed -i=".backup" 's/--mode=link $(CC)/--mode=link $(CXX)/g' Makefile
 
-if [[ "$DO_STATIC" == "yes" ]]; then
-	sed -i=".backup" 's/--mode=link $(CC)/--mode=link $(CXX)/g' Makefile
-fi
 
 make -j $THREADS >> "$DIR/install.log" 2>&1
 write_install
@@ -1291,30 +1177,6 @@ fi
 
 write_done
 
-if [[ "$HAVE_XDEBUG" == "yes" ]]; then
-	get_github_extension "xdebug" "$EXT_XDEBUG_VERSION" "xdebug" "xdebug"
-	write_library "xdebug" "$EXT_XDEBUG_VERSION"
-	cd "$BUILD_DIR/php/ext/xdebug"
-	write_configure
-	"$INSTALL_DIR/bin/phpize" >> "$DIR/install.log" 2>&1
-	./configure --with-php-config="$INSTALL_DIR/bin/php-config" >> "$DIR/install.log" 2>&1
-	write_compile
-	make -j4 >> "$DIR/install.log" 2>&1
-	write_install
-	make install >> "$DIR/install.log" 2>&1
-	echo "" >> "$INSTALL_DIR/bin/php.ini" 2>&1
-	echo ";WARNING: When loaded, xdebug 3.2.0 will cause segfaults whenever an uncaught error is thrown, even if xdebug.mode=off. Load it at your own risk." >> "$INSTALL_DIR/bin/php.ini" 2>&1
-	echo ";zend_extension=xdebug.so" >> "$INSTALL_DIR/bin/php.ini" 2>&1
-	echo ";https://xdebug.org/docs/all_settings#mode" >> "$INSTALL_DIR/bin/php.ini" 2>&1
-	echo "xdebug.mode=off" >> "$INSTALL_DIR/bin/php.ini" 2>&1
-	echo "xdebug.start_with_request=yes" >> "$INSTALL_DIR/bin/php.ini" 2>&1
-	echo ";The following overrides allow profiler, gc stats and traces to work correctly in ZTS" >> "$INSTALL_DIR/bin/php.ini" 2>&1
-	echo "xdebug.profiler_output_name=cachegrind.%s.%p.%r" >> "$INSTALL_DIR/bin/php.ini" 2>&1
-	echo "xdebug.gc_stats_output_name=gcstats.%s.%p.%r" >> "$INSTALL_DIR/bin/php.ini" 2>&1
-	echo "xdebug.trace_output_name=trace.%s.%p.%r" >> "$INSTALL_DIR/bin/php.ini" 2>&1
-	write_done
-	write_out INFO "Xdebug is included, but disabled by default. To enable it, change 'xdebug.mode' in your php.ini file."
-fi
 
 function separate_symbols {
 	local libname="$1"
